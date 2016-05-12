@@ -34,8 +34,9 @@ class WP_Supervisor {
 	// DEFAULTS
 	// *****************
 
+	private $log_file_dir = WP_CONTENT_DIR;
 	private $log_file_name = 'supervisor.log';
-	private $log_file_dir = '/logs';
+
 	private $severities = array(
 		0 => 'debug',
 		1 => 'notice',
@@ -285,10 +286,8 @@ class WP_Supervisor {
  		if( $this->logEnabled ) {
 
  			// Define log directory
-			$this->logFileDir = wp_upload_dir()['basedir'] . $this->log_file_dir;
+			$this->logFileDir = $this->log_file_dir;
 			if( defined('SUPERVISOR_LOG_DIR') && SUPERVISOR_LOG_DIR !== '' ) {
-				echo 'Hello';
-				exit;
 				$this->logFileDir = constant('SUPERVISOR_LOG_DIR');
 			}
 
@@ -313,22 +312,26 @@ class WP_Supervisor {
 
 		// Create log directory
 		if( !file_exists($this->logFileDir) ) {
-			if( !mkdir( $this->logFileDir, 0755, true ) ) {
+			if( !@mkdir( $this->logFileDir, 0755, true ) ) {
+
 				// abort
-				error_log( "WP_Supervisor: createLog():  Unable to create 'custom log' directory '{$this->logFileDir}'" );
+				$this->logEnabled = false;
+				@error_log( "WP_Supervisor: createLog():  Unable to create 'custom log' directory '{$this->logFileDir}'" );
 				return;
 			};
 		}
 
 		// Create log file
 		if( !file_exists($this->logFilePath) ) {
-			if( !touch($this->logFilePath) ) {
+			if( !@touch($this->logFilePath) ) {
+
 				// abort
-				error_log( "WP_Supervisor: createLog():  Unable to create 'custom log' file '{$this->logFilePath}'" );
+				$this->logEnabled = false;
+				@error_log( "WP_Supervisor: createLog():  Unable to create 'custom log' file '{$this->logFilePath}'" );
 				return;
 			};
 
-			chmod($this->logFilePath, 0644);
+			@chmod($this->logFilePath, 0644);
 		}
 	}
 
@@ -365,7 +368,11 @@ class WP_Supervisor {
 		$log = "{$timestamp} {$hostname} {$tag}({$host}): " . $log . PHP_EOL;
 
 		// Write log
-		error_log($log, 3, $this->logFilePath);
+		if( !@error_log($log, 3, $this->logFilePath) ) {
+			// abort
+			@error_log( "WP_Supervisor: log():  Unable to write to log file '{$this->logFilePath}'" );
+			return;
+		}
 	}
 
 	/**
